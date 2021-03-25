@@ -1,6 +1,6 @@
 // Create your bot
 const mineflayer = require("mineflayer");
-const bot = mineflayer.createBot({ host: 'localhost', port: '55130', username: "Player" });
+const bot = mineflayer.createBot({ host: 'roller.cse.taylor.edu', username: "quickBot" });
 
 // Load your dependency plugins.
 bot.loadPlugin(require('mineflayer-pathfinder').pathfinder);
@@ -19,7 +19,9 @@ const {
     BehaviorFollowEntity,
     BehaviorLookAtEntity,
     BehaviorGetClosestEntity,
-    NestedStateMachine } = require("mineflayer-statemachine");
+    NestedStateMachine, 
+    BehaviorEquipItem,
+    BehaviorMineBlock} = require("mineflayer-statemachine");
     
 // wait for our bot to login.
 bot.once("spawn", () =>
@@ -28,18 +30,33 @@ bot.once("spawn", () =>
     const targets = {};
     const water = {};
 
+    // targets.position = {}
+    // targets.position.x = -136;
+    // targets.position.y = 68;
+    // targets.position.z = -76;
+
+    const equipSwimCap = new BehaviorEquipItem(bot,targets);
+    const findDirt = new BehaviorFindBlock(bot, targets);
+    const goToDirt = new BehaviorMoveTo(bot, targets);
+    const mineDirt = new BehaviorMineBlock(bot,targets);
+
     // Create our states
-    const printServerStates = new BehaviorPrintServerStats(bot)
-    const findWater = new BehaviorFindBlock(bot, targets)
-    const goToWater = new BehaviorMoveTo(bot, targets)
-    const idle = new BehaviorIdle()
+    const printServerStates = new BehaviorPrintServerStats(bot);
+    const findWater = new BehaviorFindBlock(bot, targets);
+    const goToWater = new BehaviorMoveTo(bot, targets);
+    const idle = new BehaviorIdle();
 
     const getClosestPlayer = new BehaviorGetClosestEntity(bot, targets, EntityFilters().PlayersOnly);
     const followPlayer = new BehaviorFollowEntity(bot, targets);
     const LookAtPlayer = new BehaviorLookAtEntity(bot, targets);
     //const placeBlock = new BehaviorPlaceBlock(bot, targets);
 
-    findWater.blocks.push('17');
+    findWater.blocks.push(26);
+    findWater.maxDistance = 10000000000;
+    findDirt.blocks.push(9);
+    findDirt.maxDistance = 10000000000;
+    targets.item = 631;
+    //targets.item = 622;
 
     // Create our transitions
     const transitions = [
@@ -47,33 +64,57 @@ bot.once("spawn", () =>
 
         new StateTransition({ // 0
             parent: printServerStates,
-            child: findWater,
-            shouldTransition: () => true
+            child: equipSwimCap,
+            shouldTransition: () => true,
         }),
 
         new StateTransition({ // 1
-            parent: findWater,
-            child: goToWater,
-            shouldTransition: () => true
-        }),
-
-        new StateTransition({ // 2
-            parent: goToWater,
-            child: idle,
-            shouldTransition: () => goToWater.isFinished()
-        }),
-
-        new StateTransition({ // 3
-            parent: idle,
-            child: getClosestPlayer,
-            shouldTransition: () => bot.chat("Stalking")
-          }),
-
-        new StateTransition({
-            parent: getClosestPlayer,
-            child: followPlayer,
+            parent: equipSwimCap,
+            child: findDirt,
             shouldTransition: () => true,
         }),
+
+        new StateTransition({ // 1
+            parent: findDirt,
+            child: goToDirt,
+            shouldTransition: () => true,
+        }),
+
+        new StateTransition({ // 1
+            parent: goToDirt,
+            child: mineDirt,
+            shouldTransition: () => true,
+        }),
+
+        new StateTransition({ // 1
+            parent: mineDirt,
+            child: idle,
+            shouldTransition: () => mineDirt.isFinished,
+        }),
+
+        // new StateTransition({ // 1
+        //     parent: findWater,
+        //     child: goToWater,
+        //     shouldTransition: () => true
+        // }),
+
+        // new StateTransition({ // 2
+        //     parent: goToWater,
+        //     child: idle,
+        //     shouldTransition: () => goToWater.distanceToTarget() < 2,
+        // }),
+
+        // new StateTransition({ // 3
+        //     parent: idle,
+        //     child: goToWater,
+        //     shouldTransition: () => true
+        //   }),
+
+        // new StateTransition({
+        //     parent: getClosestPlayer,
+        //     child: followPlayer,
+        //     shouldTransition: () => true,
+        // }),
 
         // If the distance to the player is less than two blocks, switch from the followPlayer
         // state to the lookAtPlayer state.

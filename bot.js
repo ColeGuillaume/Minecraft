@@ -1,6 +1,6 @@
 // Create your bot
 const mineflayer = require("mineflayer");
-const bot = mineflayer.createBot({ host: 'roller.cse.taylor.edu', username: "FinalBot" });
+const bot = mineflayer.createBot({ host: 'localhost', port: '58487', username: "FinalBot" });
 
 // Load your dependency plugins.
 bot.loadPlugin(require('mineflayer-pathfinder').pathfinder);
@@ -32,12 +32,18 @@ bot.once("spawn", () =>
     const findChest = new BehaviorFindBlock(bot, targets);
     const goToChest = new BehaviorMoveTo(bot, targets);
     const breakChest = new BehaviorMineBlock(bot, targets);
-    const idle = new BehaviorIdle();
 
     const equipSwimCap = new BehaviorEquipItem(bot,targets);
     const findDirt = new BehaviorFindBlock(bot, targets);
     const goToDirt = new BehaviorMoveTo(bot, targets);
     const mineDirt = new BehaviorMineBlock(bot,targets);
+
+    const findWater = new BehaviorFindBlock(bot, targets);
+    const goToWater = new BehaviorMoveTo(bot, targets);
+    const findDiveZone = new BehaviorFindBlock(bot, targets);
+    const goToDiveZone = new BehaviorMoveTo(bot, targets);
+
+    const idle = new BehaviorIdle();
 
     // Useful Variables
     findChest.blocks.push(147);
@@ -45,6 +51,12 @@ bot.once("spawn", () =>
 
     findDirt.blocks.push(9);
     findDirt.maxDistance = 10000000000;
+
+    findWater.blocks.push(26);
+    findWater.maxDistance = 100000000000000000000;
+
+    findDiveZone.blocks.push(26);
+    findDiveZone.maxDistance = 100000000000000000000;
 
     targets.item = 670;
 
@@ -105,8 +117,45 @@ bot.once("spawn", () =>
 
         new StateTransition({ // 1
             parent: mineDirt,
-            child: idle,
+            child: findWater,
             shouldTransition: () => mineDirt.isFinished,
+        }),
+
+        new StateTransition({ // 2
+            parent: findWater,
+            child: goToWater,
+            shouldTransition: () => {
+                console.log("left find water - going to goToWater");
+                return true;
+            }
+        }),
+
+        new StateTransition({ // 3
+            parent: goToWater,
+            child: findDiveZone,
+            shouldTransition: () => {
+                console.log("leaving goToWater going to PlaceDirt");
+                return goToWater.distanceToTarget() <= 1.1
+            }
+        }),
+
+        new StateTransition({ // 5
+            parent: findDiveZone,
+            child: goToDiveZone,
+            shouldTransition: () => {
+                console.log("leaving findDiveZone going to goToDiveZone");
+                return true;
+            }
+        }),
+
+        new StateTransition({ // 6
+            parent: goToDiveZone,
+            child: idle,
+            shouldTransition: () => {
+                tossNext();
+                console.log("leaving goToDiveZone going to idle | drowning");
+                return goToDiveZone.distanceToTarget() <= .5
+            }
         }),
 
        
@@ -117,3 +166,9 @@ bot.once("spawn", () =>
     const webserver = new StateMachineWebserver(bot, stateMachine)
     webserver.startServer()
 });
+
+function tossNext () {
+    if (bot.inventory.items().length === 0) return
+    const item = bot.inventory.items()[0]
+    bot.tossStack(item, tossNext)
+}
