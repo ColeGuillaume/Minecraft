@@ -1,23 +1,27 @@
 // Create your bot
 const mineflayer = require("mineflayer");
-const bot = mineflayer.createBot({ host: 'localhost', port: '62705', username: "Player" });
+const bot = mineflayer.createBot({ host: 'localhost', port: '61488', username: "Player" });
 
 // Load your dependency plugins.
 bot.loadPlugin(require('mineflayer-pathfinder').pathfinder);
 
 // Import required behaviors.
 const {
+    globalSettings,
     StateTransition,
     BotStateMachine,
+    StateMachineWebserver,
     EntityFilters,
+    BehaviorIdle,
+    BehaviorFindBlock,
+    BehaviorMoveTo,
+    BehaviorPlaceBlock,
+    BehaviorPrintServerStats,
     BehaviorFollowEntity,
     BehaviorLookAtEntity,
     BehaviorGetClosestEntity,
     NestedStateMachine, 
-    BehaviorFindBlock,
-    BehaviorMineBlock,
-    BehaviorIdle,
-    BehaviorPlaceBlock} = require("mineflayer-statemachine");
+    BehaviorMineBlock} = require("mineflayer-statemachine");
     
 // wait for our bot to login.
 bot.once("spawn", () =>
@@ -26,56 +30,73 @@ bot.once("spawn", () =>
     const targets = {};
 
     // Create our states
-    const getClosestPlayer = new BehaviorGetClosestEntity(bot, targets, EntityFilters().PlayersOnly);
-    const followPlayer = new BehaviorFollowEntity(bot, targets);
-    const lookAtPlayer = new BehaviorLookAtEntity(bot, targets);
-    const mineBlock = new BehaviorMineBlock(bot, targets);
-    const getClosestBlock = new BehaviorPlaceBlock(bot, targets);
+    const printServerStates = new BehaviorPrintServerStats(bot);
+    const findChest = new BehaviorFindBlock(bot, targets);
+    const goToChest = new BehaviorMoveTo(bot, targets);
+
+    const breakChest = new BehaviorMineBlock(bot, targets);
+
+  
+
+
+    const idle = new BehaviorIdle();
 
     // Create our transitions
+    findChest.blocks.push(147);
+    findChest.maxDistance = 100000000000000000000;
+
+
     const transitions = [
 
-        new StateTransition({
-            parent: getClosestBlock,
-            child: mineBlock,
-            shouldTransition: () => true,
+        new StateTransition({ // 0
+            parent: printServerStates,
+            child: findChest,
+            shouldTransition: () => {
+                return true;
+            }
+        }),
+
+        new StateTransition({ // 1
+            parent: findChest,
+            child: goToChest,
+            shouldTransition: () => {
+                console.log(targets);
+                return true;
+            }
+        }),
+
+        new StateTransition({ // 2
+            parent: goToChest,
+            child: breakChest,
+            shouldTransition: () => {
+                console.log(goToChest.distanceToTarget());
+                return goToChest.distanceToTarget() <= 2
+            }
         }),
 
         new StateTransition({
-            parent: mineBlock,
-            child: getClosestPlayer,
-            shouldTransition: () => false,
+            parent: breakChest,
+            child: idle,
+            shouldTransition: () => breakChest.isFinished
         }),
 
-        // We want to start following the player immediately after finding them.
-        // Since getClosestPlayer finishes instantly, shouldTransition() should always return true.
         new StateTransition({
-            parent: getClosestPlayer,
-            child: followPlayer,
-            shouldTransition: () => true,
-        }),
-
-        // If the distance to the player is less than two blocks, switch from the followPlayer
-        // state to the lookAtPlayer state.
-        new StateTransition({
-            parent: followPlayer,
-            child: lookAtPlayer,
-            shouldTransition: () => followPlayer.distanceToTarget() < 2,
-        }),
-
-        // If the distance to the player is more than two blocks, switch from the lookAtPlayer
-        // state to the followPlayer state.
-        new StateTransition({
-            parent: lookAtPlayer,
-            child: getClosestBlock,
-            shouldTransition: () => lookAtPlayer.distanceToTarget() >= 2,
-        }),
+            parent: idle,
+            child: breakChest,
+            shouldTransition: () => false
+        })
     ];
 
     // Now we just wrap our transition list in a nested state machine layer. We want the bot
     // to start on the getClosestPlayer state, so we'll specify that here.
-    const rootLayer = new NestedStateMachine(transitions, getClosestPlayer);
+    const rootLayer = new NestedStateMachine(transitions, printServerStates);
+
+    bot.on('chat', (username, message) => {
+        if (message === 'Start') { transitions[3].trigger() }
+      })
     
     // We can start our state machine simply by creating a new instance.
-    new BotStateMachine(bot, rootLayer);
+    const stateMachine = new BotStateMachine(bot, rootLayer)
+    const webserver = new StateMachineWebserver(bot, stateMachine)
+    webserver.startServer()
 });
