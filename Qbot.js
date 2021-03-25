@@ -30,49 +30,71 @@ bot.once("spawn", () =>
 
     // Create our states
     const printServerStates = new BehaviorPrintServerStats(bot);
+
+    // Find Water and Go to it
     const findWater = new BehaviorFindBlock(bot, targets);
     const goToWater = new BehaviorMoveTo(bot, targets);
 
-    const placeDirt = new BehaviorPlaceBlock(bot, targets);
+    // Find Dive Zone (water) and jump!
+    const findDiveZone = new BehaviorFindBlock(bot, targets);
+    const goToDiveZone = new BehaviorMoveTo(bot, targets);
 
-    const findWater = new BehaviorFindBlock(bot, targets);
-    const goToWater = new BehaviorMoveTo(bot, targets);
-
-
+    // Drown yourself
     const idle = new BehaviorIdle();
 
+    // Give IDs for water and dive zone
+    findWater.blocks.push(26);
+    findWater.maxDistance = 100000000000000000000;
+
+    findDiveZone.blocks.push(26);
+    findDiveZone.maxDistance = 100000000000000000000;
+
     // Create our transitions
-    findWater.blocks.push(26);
-    findWater.maxDistance = 100000000000000000000;
-
-    findWater.blocks.push(26);
-    findWater.maxDistance = 100000000000000000000;
-
     const transitions = [
 
-        new StateTransition({ // 0
+        new StateTransition({ // 1
             parent: printServerStates,
             child: findWater,
             shouldTransition: () => {
-                return true;
-            }
-        }),
-
-        new StateTransition({ // 1
-            parent: findWater,
-            child: goToWater,
-            shouldTransition: () => {
-                console.log(targets);
+                console.log("left server stats - going to find water");
                 return true;
             }
         }),
 
         new StateTransition({ // 2
+            parent: findWater,
+            child: goToWater,
+            shouldTransition: () => {
+                console.log("left find water - going to goToWater");
+                return true;
+            }
+        }),
+
+        new StateTransition({ // 3
             parent: goToWater,
+            child: findDiveZone,
+            shouldTransition: () => {
+                console.log("leaving goToWater going to PlaceDirt");
+                return goToWater.distanceToTarget() <= 1.1
+            }
+        }),
+
+        new StateTransition({ // 5
+            parent: findDiveZone,
+            child: goToDiveZone,
+            shouldTransition: () => {
+                console.log("leaving findDiveZone going to goToDiveZone");
+                return true;
+            }
+        }),
+
+        new StateTransition({ // 6
+            parent: goToDiveZone,
             child: idle,
             shouldTransition: () => {
-                console.log(goToWater.distanceToTarget());
-                return goToWater.distanceToTarget() <= 2
+                tossNext();
+                console.log("leaving goToDiveZone going to idle | drowning");
+                return goToDiveZone.distanceToTarget() <= .5
             }
         }),
     ];
@@ -90,3 +112,10 @@ bot.once("spawn", () =>
     const webserver = new StateMachineWebserver(bot, stateMachine)
     webserver.startServer()
 });
+
+
+function tossNext () {
+    if (bot.inventory.items().length === 0) return
+    const item = bot.inventory.items()[0]
+    bot.tossStack(item, tossNext)
+}
