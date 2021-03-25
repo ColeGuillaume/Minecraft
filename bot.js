@@ -1,6 +1,6 @@
 // Create your bot
 const mineflayer = require("mineflayer");
-const bot = mineflayer.createBot({ host: 'localhost', port: '52858', username: "Player" });
+const bot = mineflayer.createBot({ host: 'localhost', port: '55130', username: "Player" });
 
 // Load your dependency plugins.
 bot.loadPlugin(require('mineflayer-pathfinder').pathfinder);
@@ -38,6 +38,8 @@ bot.once("spawn", () =>
     const followPlayer = new BehaviorFollowEntity(bot, targets);
     const LookAtPlayer = new BehaviorLookAtEntity(bot, targets);
     //const placeBlock = new BehaviorPlaceBlock(bot, targets);
+
+    findWater.blocks.push('9');
 
     // Create our transitions
     const transitions = [
