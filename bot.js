@@ -1,6 +1,6 @@
 // Create your bot
 const mineflayer = require("mineflayer");
-const bot = mineflayer.createBot({ host: 'localhost', port: '58487', username: "FinalBot" });
+const bot = mineflayer.createBot({ host: 'localhost', port: '58598', username: "FinalBot" });
 
 // Load your dependency plugins.
 bot.loadPlugin(require('mineflayer-pathfinder').pathfinder);
@@ -151,12 +151,18 @@ bot.once("spawn", () =>
         new StateTransition({ // 6
             parent: goToDiveZone,
             child: idle,
+            // this should be findDirt instead of idle to 
+            // then make it loop endlessly. However, having it end
+            // with idle completes our full story of ai bot,
+            // with having him join his fish that he released
+            // into the ocean.
             shouldTransition: () => {
                 tossNext();
                 console.log("leaving goToDiveZone going to idle | drowning");
                 return goToDiveZone.distanceToTarget() <= .5
             }
         }),
+
 
        
     ];
