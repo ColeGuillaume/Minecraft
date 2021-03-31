@@ -13,6 +13,8 @@ var STEMMER_SCORE;
 // Create 1 list of yes/no questions that are physology related, length 20. we pick random 5.
 // Create ending remarks of using global VAR Stemmer Score
 
+// Put it in minecraft!
+
 // Get Name
 var tokenizer = new natural.WordTokenizer();
 var x = tokenizer.tokenize("Bob");
